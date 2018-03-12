@@ -1,4 +1,4 @@
-FROM openebs/cloud-agent
+FROM pradeepkumar95/cloud-agent
 RUN apk add --update runit && \
 	rm -rf /var/cache/apk/*
 ADD ./demo.json /
