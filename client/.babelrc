@@ -1,0 +1,8 @@
+{
+  "plugins": [
+    "lodash",
+    "transform-class-properties",
+    ["transform-object-rest-spread", { "useBuiltIns": true }]
+  ],
+  "presets": ["env", "react"]
+}
