@@ -41,7 +41,7 @@ workflows:
       - deploy1:
           filters:
             branches:
-              only: staging
+              only: production
           requires:
             - client-test
             - integration-tests
