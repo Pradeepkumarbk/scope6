@@ -19,6 +19,13 @@ import {
   heptagonShapeProps,
   octagonShapeProps,
   cloudShapeProps,
+  cylinderShapeProps,
+  dottedCylinderShapeProps,
+  sheetShapeProps,
+  poolShapeProps,
+  dottedPoolShapeProps,
+  volumeSnapshotProps,
+  dottedVolumeSnapshotProps
 } from '../utils/node-shape-utils';
 import { encodeIdAttribute } from '../utils/dom-utils';
 
@@ -83,3 +90,10 @@ export const NodeShapeHexagon = props => NodeShape('hexagon', pathElement, hexag
 export const NodeShapeHeptagon = props => NodeShape('heptagon', pathElement, heptagonShapeProps, props);
 export const NodeShapeOctagon = props => NodeShape('octagon', pathElement, octagonShapeProps, props);
 export const NodeShapeCloud = props => NodeShape('cloud', pathElement, cloudShapeProps, props);
+export const NodeShapeCylinder = props => NodeShape('cylinder', pathElement, cylinderShapeProps, props);
+export const NodeShapeDottedCylinder = props => NodeShape('dottedcylinder', pathElement, dottedCylinderShapeProps, props);
+export const NodeShapeSheet = props => NodeShape('sheet', pathElement, sheetShapeProps, props);
+export const NodeShapePool = props => NodeShape('pool', pathElement, poolShapeProps, props);
+export const NodeShapeDottedPool = props => NodeShape('dottedpool', pathElement, dottedPoolShapeProps, props);
+export const NodeShapeVolumeSnapshot = props => NodeShape('volumesnapshot', pathElement, volumeSnapshotProps, props);
+export const NodeShapeDottedVolumeSnapshot = props => NodeShape('dottedvolumesnapshot', pathElement, dottedVolumeSnapshotProps, props);

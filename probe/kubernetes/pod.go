@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/weaveworks/scope/report"
 
@@ -13,8 +14,27 @@ const (
 	State           = report.KubernetesState
 	IsInHostNetwork = report.KubernetesIsInHostNetwork
 	RestartCount    = report.KubernetesRestartCount
+)
 
+// Pod states we handle specially
+const (
 	StateDeleted = "deleted"
+	StateFailed  = "Failed"
+)
+
+// Pod labels to get pv name, if it is a controller/target or replica pod
+const (
+	PersistentVolumeLabel = "openebs.io/persistent-volume"
+	VSMLabel              = "vsm"
+	PVLabel               = "openebs.io/pv"
+)
+
+// Pod label to distinguish replica pod or cstor pool pod
+const (
+	AppLabel         = "app"
+	AppValue         = "cstor-pool"
+	ReplicaPodLabel  = "openebs.io/replica"
+	JivaReplicaValue = "jiva-replica"
 )
 
 // Pod represents a Kubernetes pod
@@ -23,6 +43,9 @@ type Pod interface {
 	AddParent(topology, id string)
 	NodeName() string
 	GetNode(probeID string) report.Node
+	GetVolumeName() string
+	IsReplicaOrPoolPod() bool
+	VolumeClaimName() string
 	RestartCount() uint
 	ContainerNames() []string
 }
@@ -52,7 +75,7 @@ func (p *pod) UID() string {
 }
 
 func (p *pod) AddParent(topology, id string) {
-	p.parents = p.parents.Add(topology, report.MakeStringSet(id))
+	p.parents = p.parents.AddString(topology, id)
 }
 
 func (p *pod) State() string {
@@ -71,12 +94,64 @@ func (p *pod) RestartCount() uint {
 	return count
 }
 
+func (p *pod) IsReplicaOrPoolPod() bool {
+	replicaPod, _ := p.GetLabels()[ReplicaPodLabel]
+	cstorPoolPod, _ := p.GetLabels()[AppLabel]
+	if replicaPod == JivaReplicaValue || cstorPoolPod == AppValue {
+		return true
+	}
+	return false
+}
+
+func (p *pod) GetVolumeName() string {
+	if strings.Contains(p.GetName(), "-rep-") {
+		return ""
+	}
+
+	var volumeName string
+	var ok bool
+
+	if volumeName, ok = p.GetLabels()[VSMLabel]; ok {
+		return volumeName
+	} else if volumeName, ok = p.GetLabels()[PersistentVolumeLabel]; ok {
+		return volumeName
+	} else if volumeName, ok = p.GetLabels()[PVLabel]; ok {
+		return volumeName
+	}
+	return ""
+}
+
+func (p *pod) VolumeClaimName() string {
+	var claimName string
+	for _, volume := range p.Spec.Volumes {
+		if volume.VolumeSource.PersistentVolumeClaim != nil {
+			claimName = volume.VolumeSource.PersistentVolumeClaim.ClaimName
+			break
+		}
+	}
+	return claimName
+}
+
 func (p *pod) GetNode(probeID string) report.Node {
 	latests := map[string]string{
 		State: p.State(),
 		IP:    p.Status.PodIP,
 		report.ControlProbeID: probeID,
 		RestartCount:          strconv.FormatUint(uint64(p.RestartCount()), 10),
+	}
+
+	if p.VolumeClaimName() != "" {
+		latests[VolumeClaim] = p.VolumeClaimName()
+		latests[VolumePod] = "true"
+	}
+
+	if p.GetVolumeName() != "" {
+		latests[VolumeName] = p.GetVolumeName()
+		latests[VolumePod] = "true"
+	}
+
+	if p.IsReplicaOrPoolPod() {
+		latests[VolumePod] = "true"
 	}
 
 	if p.Pod.Spec.HostNetwork {

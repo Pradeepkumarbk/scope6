@@ -9,9 +9,10 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	"context"
+
 	"github.com/gorilla/mux"
-	"golang.org/x/net/context"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/weaveworks/scope/probe/docker"
 	"github.com/weaveworks/scope/probe/kubernetes"
@@ -30,6 +31,8 @@ const (
 	podsID                 = "pods"
 	kubeControllersID      = "kube-controllers"
 	servicesID             = "services"
+	volumesID              = "volumes"
+	storageID              = "storage"
 	hostsID                = "hosts"
 	weaveID                = "weave"
 	ecsTasksID             = "ecs-tasks"
@@ -43,8 +46,24 @@ var (
 		ID:      "pseudo",
 		Default: "hide",
 		Options: []APITopologyOption{
-			{Value: "show", Label: "Show Unmanaged", filter: nil, filterPseudo: false},
-			{Value: "hide", Label: "Hide Unmanaged", filter: render.IsNotPseudo, filterPseudo: true},
+			{Value: "show", Label: "Show unmanaged", filter: nil, filterPseudo: false},
+			{Value: "hide", Label: "Hide unmanaged", filter: render.IsNotPseudo, filterPseudo: true},
+		},
+	}
+	storageFilter = APITopologyOptionGroup{
+		ID:      "storage",
+		Default: "hide",
+		Options: []APITopologyOption{
+			{Value: "show", Label: "Show storage", filter: nil, filterPseudo: false},
+			{Value: "hide", Label: "Hide storage", filter: render.IsPodComponent, filterPseudo: false},
+		},
+	}
+	snapshotFilter = APITopologyOptionGroup{
+		ID:      "snapshot",
+		Default: "hide",
+		Options: []APITopologyOption{
+			{Value: "show", Label: "Show snapshots", filter: nil, filterPseudo: false},
+			{Value: "hide", Label: "Hide snapshots", filter: render.IsNotSnapshotComponent, filterPseudo: false},
 		},
 	}
 )
@@ -151,8 +170,8 @@ func MakeRegistry() *Registry {
 			Default: "application",
 			Options: []APITopologyOption{
 				{Value: "all", Label: "All", filter: nil, filterPseudo: false},
-				{Value: "system", Label: "System Containers", filter: render.IsSystem, filterPseudo: false},
-				{Value: "application", Label: "Application Containers", filter: render.IsApplication, filterPseudo: false}},
+				{Value: "system", Label: "System containers", filter: render.IsSystem, filterPseudo: false},
+				{Value: "application", Label: "Application containers", filter: render.IsApplication, filterPseudo: false}},
 		},
 		{
 			ID:      "stopped",
@@ -167,8 +186,8 @@ func MakeRegistry() *Registry {
 			ID:      "pseudo",
 			Default: "hide",
 			Options: []APITopologyOption{
-				{Value: "show", Label: "Show Uncontained", filter: nil, filterPseudo: false},
-				{Value: "hide", Label: "Hide Uncontained", filter: render.IsNotPseudo, filterPseudo: true},
+				{Value: "show", Label: "Show uncontained", filter: nil, filterPseudo: false},
+				{Value: "hide", Label: "Hide uncontained", filter: render.IsNotPseudo, filterPseudo: true},
 			},
 		},
 	}
@@ -178,8 +197,8 @@ func MakeRegistry() *Registry {
 			ID:      "unconnected",
 			Default: "hide",
 			Options: []APITopologyOption{
-				{Value: "show", Label: "Show Unconnected", filter: nil, filterPseudo: false},
-				{Value: "hide", Label: "Hide Unconnected", filter: render.IsConnected, filterPseudo: false},
+				{Value: "show", Label: "Show unconnected", filter: nil, filterPseudo: false},
+				{Value: "hide", Label: "Hide unconnected", filter: render.IsConnected, filterPseudo: false},
 			},
 		},
 	}
@@ -189,7 +208,7 @@ func MakeRegistry() *Registry {
 	registry.Add(
 		APITopologyDesc{
 			id:          processesID,
-			renderer:    render.ProcessWithContainerNameRenderer,
+			renderer:    render.ConnectedProcessRenderer,
 			Name:        "Processes",
 			Rank:        1,
 			Options:     unconnectedFilter,
@@ -236,7 +255,7 @@ func MakeRegistry() *Registry {
 			id:          kubeControllersID,
 			parent:      podsID,
 			renderer:    render.KubeControllerRenderer,
-			Name:        "controllers",
+			Name:        "Controllers",
 			Options:     []APITopologyOptionGroup{unmanagedFilter},
 			HideIfEmpty: true,
 		},
@@ -244,7 +263,7 @@ func MakeRegistry() *Registry {
 			id:          servicesID,
 			parent:      podsID,
 			renderer:    render.PodServiceRenderer,
-			Name:        "services",
+			Name:        "Services",
 			Options:     []APITopologyOptionGroup{unmanagedFilter},
 			HideIfEmpty: true,
 		},
@@ -260,14 +279,14 @@ func MakeRegistry() *Registry {
 			id:          ecsServicesID,
 			parent:      ecsTasksID,
 			renderer:    render.ECSServiceRenderer,
-			Name:        "services",
+			Name:        "Services",
 			Options:     []APITopologyOptionGroup{unmanagedFilter},
 			HideIfEmpty: true,
 		},
 		APITopologyDesc{
 			id:          swarmServicesID,
 			renderer:    render.SwarmServiceRenderer,
-			Name:        "services",
+			Name:        "Services",
 			Rank:        3,
 			Options:     []APITopologyOptionGroup{unmanagedFilter},
 			HideIfEmpty: true,
@@ -278,11 +297,27 @@ func MakeRegistry() *Registry {
 			Name:     "Hosts",
 			Rank:     4,
 		},
+		// APITopologyDesc{
+		// 	id:       weaveID,
+		// 	parent:   hostsID,
+		// 	renderer: render.WeaveRenderer,
+		// 	Name:     "Weave Net",
+		// },
 		APITopologyDesc{
-			id:       weaveID,
-			parent:   hostsID,
-			renderer: render.WeaveRenderer,
-			Name:     "Weave Net",
+			id:          storageID,
+			parent:      hostsID,
+			renderer:    render.KubernetesStorageRenderer,
+			Name:        "Storage",
+			Options:     []APITopologyOptionGroup{},
+			HideIfEmpty: true,
+		},
+		APITopologyDesc{
+			id:          volumesID,
+			parent:      hostsID,
+			renderer:    render.KubernetesVolumesRenderer,
+			Name:        "Volumes",
+			Options:     []APITopologyOptionGroup{snapshotFilter, unmanagedFilter},
+			HideIfEmpty: true,
 		},
 	)
 
@@ -314,7 +349,7 @@ func (a byName) Less(i, j int) bool { return a[i].Name < a[j].Name }
 // APITopologyOptionGroup describes a group of APITopologyOptions
 type APITopologyOptionGroup struct {
 	ID string `json:"id"`
-	// Default value for the UI to adopt. NOT used as the default if the value is omitted, allowing "" as a distinct value.
+	// Default value for the option. Used if the value is omitted; not used if the value is ""
 	Default string              `json:"defaultValue"`
 	Options []APITopologyOption `json:"options,omitempty"`
 	// SelectType describes how options can be picked. Currently defined values:
@@ -328,18 +363,14 @@ type APITopologyOptionGroup struct {
 
 // Get the render filters to use for this option group, if any, or nil otherwise.
 func (g APITopologyOptionGroup) filter(value string) render.FilterFunc {
-	selectType := g.SelectType
-	if selectType == "" {
-		selectType = "one"
-	}
 	var values []string
-	switch selectType {
-	case "one":
+	switch g.SelectType {
+	case "", "one":
 		values = []string{value}
 	case "union":
 		values = strings.Split(value, ",")
 	default:
-		log.Errorf("Invalid select type %s for option group %s, ignoring option", selectType, g.ID)
+		log.Errorf("Invalid select type %s for option group %s, ignoring option", g.SelectType, g.ID)
 		return nil
 	}
 	filters := []render.FilterFunc{}
@@ -522,7 +553,10 @@ func (r *Registry) RendererForTopology(topologyID string, values url.Values, rpt
 
 	var filters []render.FilterFunc
 	for _, group := range topology.Options {
-		value := values.Get(group.ID)
+		value := group.Default
+		if vs := values[group.ID]; len(vs) > 0 {
+			value = vs[0]
+		}
 		if filter := group.filter(value); filter != nil {
 			filters = append(filters, filter)
 		}

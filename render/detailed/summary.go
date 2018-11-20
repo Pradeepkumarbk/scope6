@@ -64,39 +64,55 @@ type NodeSummary struct {
 }
 
 var renderers = map[string]func(BasicNodeSummary, report.Node) BasicNodeSummary{
-	render.Pseudo:         pseudoNodeSummary,
-	report.Process:        processNodeSummary,
-	report.Container:      containerNodeSummary,
-	report.ContainerImage: containerImageNodeSummary,
-	report.Pod:            podNodeSummary,
-	report.Service:        podGroupNodeSummary,
-	report.Deployment:     podGroupNodeSummary,
-	report.DaemonSet:      podGroupNodeSummary,
-	report.StatefulSet:    podGroupNodeSummary,
-	report.CronJob:        podGroupNodeSummary,
-	report.ECSTask:        ecsTaskNodeSummary,
-	report.ECSService:     ecsServiceNodeSummary,
-	report.SwarmService:   swarmServiceNodeSummary,
-	report.Host:           hostNodeSummary,
-	report.Overlay:        weaveNodeSummary,
-	report.Endpoint:       nil, // Do not render
+	render.Pseudo:                pseudoNodeSummary,
+	report.Process:               processNodeSummary,
+	report.Container:             containerNodeSummary,
+	report.ContainerImage:        containerImageNodeSummary,
+	report.Pod:                   podNodeSummary,
+	report.Service:               podGroupNodeSummary,
+	report.Deployment:            podGroupNodeSummary,
+	report.DaemonSet:             podGroupNodeSummary,
+	report.StatefulSet:           podGroupNodeSummary,
+	report.CronJob:               podGroupNodeSummary,
+	report.ECSTask:               ecsTaskNodeSummary,
+	report.ECSService:            ecsServiceNodeSummary,
+	report.SwarmService:          swarmServiceNodeSummary,
+	report.Host:                  hostNodeSummary,
+	report.Overlay:               weaveNodeSummary,
+	report.Endpoint:              nil, // Do not render
+	report.PersistentVolume:      persistentVolumeNodeSummary,
+	report.PersistentVolumeClaim: persistentVolumeClaimNodeSummary,
+	report.StorageClass:          storageClassNodeSummary,
+	report.Disk:                  diskNodeSummary,
+	report.StoragePool:           storagePoolNodeSummary,
+	report.StoragePoolClaim:      storagePoolClaimNodeSummary,
+	report.VolumeSnapshot:        volumeSnapshotNodeSummary,
+	report.VolumeSnapshotData:    volumeSnapshotDataNodeSummary,
 }
 
 // For each report.Topology, map to a 'primary' API topology. This can then be used in a variety of places.
 var primaryAPITopology = map[string]string{
-	report.Process:        "processes",
-	report.Container:      "containers",
-	report.ContainerImage: "containers-by-image",
-	report.Pod:            "pods",
-	report.Deployment:     "kube-controllers",
-	report.DaemonSet:      "kube-controllers",
-	report.StatefulSet:    "kube-controllers",
-	report.CronJob:        "kube-controllers",
-	report.Service:        "services",
-	report.ECSTask:        "ecs-tasks",
-	report.ECSService:     "ecs-services",
-	report.SwarmService:   "swarm-services",
-	report.Host:           "hosts",
+	report.Process:               "processes",
+	report.Container:             "containers",
+	report.ContainerImage:        "containers-by-image",
+	report.Pod:                   "pods",
+	report.Deployment:            "kube-controllers",
+	report.DaemonSet:             "kube-controllers",
+	report.StatefulSet:           "kube-controllers",
+	report.CronJob:               "kube-controllers",
+	report.Service:               "services",
+	report.ECSTask:               "ecs-tasks",
+	report.ECSService:            "ecs-services",
+	report.SwarmService:          "swarm-services",
+	report.Host:                  "hosts",
+	report.PersistentVolume:      "volumes",
+	report.PersistentVolumeClaim: "volumes",
+	report.StorageClass:          "volumes",
+	report.Disk:                  "hosts",
+	report.VolumeSnapshot:        "volumes",
+	report.VolumeSnapshotData:    "volumes",
+	report.StoragePoolClaim:      "storage",
+	report.StoragePool:           "storage",
 }
 
 // MakeBasicNodeSummary returns a basic summary of a node, if
@@ -250,7 +266,7 @@ func containerNodeSummary(base BasicNodeSummary, n report.Node) BasicNodeSummary
 	base.Label = containerName
 	base.LabelMinor = hostName
 	if imageName != "" {
-		base.Rank = docker.ImageNameWithoutVersion(imageName)
+		base.Rank = docker.ImageNameWithoutTag(imageName)
 	} else if hostName != "" {
 		base.Rank = hostName
 	} else {
@@ -261,12 +277,12 @@ func containerNodeSummary(base BasicNodeSummary, n report.Node) BasicNodeSummary
 
 func containerImageNodeSummary(base BasicNodeSummary, n report.Node) BasicNodeSummary {
 	var (
-		imageName, _            = n.Latest.Lookup(docker.ImageName)
-		imageNameWithoutVersion = docker.ImageNameWithoutVersion(imageName)
+		imageName, _        = n.Latest.Lookup(docker.ImageName)
+		imageNameWithoutTag = docker.ImageNameWithoutTag(imageName)
 	)
 	switch {
-	case imageNameWithoutVersion != "" && imageNameWithoutVersion != ImageNameNone:
-		base.Label = imageNameWithoutVersion
+	case imageNameWithoutTag != "" && imageNameWithoutTag != ImageNameNone:
+		base.Label = imageNameWithoutTag
 	case imageName != "" && imageName != ImageNameNone:
 		base.Label = imageName
 	default:
@@ -297,7 +313,7 @@ func addKubernetesLabelAndRank(base BasicNodeSummary, n report.Node) BasicNodeSu
 
 func podNodeSummary(base BasicNodeSummary, n report.Node) BasicNodeSummary {
 	base = addKubernetesLabelAndRank(base, n)
-	base.LabelMinor = pluralize(n.Counters, report.Container, "container", "containers")
+	base.LabelMinor = "Pod of " + pluralize(n.Counters, report.Container, "container", "containers")
 	return base
 }
 
@@ -368,6 +384,54 @@ func weaveNodeSummary(base BasicNodeSummary, n report.Node) BasicNodeSummary {
 		base.Label = peerName
 	}
 	base.LabelMinor = peerName
+	return base
+}
+
+func persistentVolumeNodeSummary(base BasicNodeSummary, n report.Node) BasicNodeSummary {
+	base = addKubernetesLabelAndRank(base, n)
+	base.LabelMinor = "Persistent volume"
+	return base
+}
+
+func persistentVolumeClaimNodeSummary(base BasicNodeSummary, n report.Node) BasicNodeSummary {
+	base = addKubernetesLabelAndRank(base, n)
+	base.LabelMinor = "Persistent volume claim"
+	return base
+}
+
+func storageClassNodeSummary(base BasicNodeSummary, n report.Node) BasicNodeSummary {
+	base = addKubernetesLabelAndRank(base, n)
+	base.LabelMinor = "Storage class"
+	return base
+}
+
+func diskNodeSummary(base BasicNodeSummary, n report.Node) BasicNodeSummary {
+	base = addKubernetesLabelAndRank(base, n)
+	base.LabelMinor = "Disk"
+	return base
+}
+
+func storagePoolNodeSummary(base BasicNodeSummary, n report.Node) BasicNodeSummary {
+	base = addKubernetesLabelAndRank(base, n)
+	base.LabelMinor = "Storage pool"
+	return base
+}
+
+func volumeSnapshotNodeSummary(base BasicNodeSummary, n report.Node) BasicNodeSummary {
+	base = addKubernetesLabelAndRank(base, n)
+	base.LabelMinor = "Volume snapshot"
+	return base
+}
+
+func storagePoolClaimNodeSummary(base BasicNodeSummary, n report.Node) BasicNodeSummary {
+	base = addKubernetesLabelAndRank(base, n)
+	base.LabelMinor = "Storage pool claim"
+	return base
+}
+
+func volumeSnapshotDataNodeSummary(base BasicNodeSummary, n report.Node) BasicNodeSummary {
+	base = addKubernetesLabelAndRank(base, n)
+	base.LabelMinor = "Volume snapshot data"
 	return base
 }
 

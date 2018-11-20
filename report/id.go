@@ -157,6 +157,53 @@ var (
 
 	// ParseSwarmServiceNodeID parses a Swarm service node ID
 	ParseSwarmServiceNodeID = parseSingleComponentID("swarm_service")
+
+	// MakePersistentVolumeNodeID produces a Persistent Volume node ID from its composite parts.
+	MakePersistentVolumeNodeID = makeSingleComponentID("persistent_volume")
+
+	// ParsePersistentVolumeNodeID parses a Persistent Volume node ID
+	ParsePersistentVolumeNodeID = parseSingleComponentID("persistent_volume")
+
+	// MakePersistentVolumeClaimNodeID produces a Persistent Volume Claim node ID from its composite parts.
+	MakePersistentVolumeClaimNodeID = makeSingleComponentID("persistent_volume_claim")
+
+	// ParsePersistentVolumeClaimNodeID parses a Persistent Volume Claim node ID
+	ParsePersistentVolumeClaimNodeID = parseSingleComponentID("persistent_volume_claim")
+
+	// MakeStorageClassNodeID produces a storage class node ID from its composite parts.
+	MakeStorageClassNodeID = makeSingleComponentID("storage_class")
+
+	// ParseStorageClassNodeID parses a storage class node ID
+	ParseStorageClassNodeID = parseSingleComponentID("storage_class")
+
+	// MakeDiskNodeID produces a disk node ID from its composite parts.
+	MakeDiskNodeID = makeSingleComponentID("disk")
+
+	// ParseDiskNodeID parses a disk node ID
+	ParseDiskNodeID = parseSingleComponentID("disk")
+
+	// MakeStoragePoolNodeID produces a Stoage Pool node ID from its composite parts.
+	MakeStoragePoolNodeID = makeSingleComponentID("storage_pool")
+
+	// ParseStoragePoolNodeID parses a Stoage Pool node ID
+	ParseStoragePoolNodeID = parseSingleComponentID("storage_pool")
+
+	// MakeStoragePoolClaimNodeID produces a Stoage Pool Claim node ID from its composite parts.
+	MakeStoragePoolClaimNodeID = makeSingleComponentID("storage_pool_claim")
+
+	// ParseStoragePoolClaimNodeID parses a Stoage Pool Claim node ID
+	ParseStoragePoolClaimNodeID = parseSingleComponentID("storage_pool_claim")
+	// MakeVolumeSnapshotNodeID produces a volume snapshot node ID from its composite parts.
+	MakeVolumeSnapshotNodeID = makeSingleComponentID("volume_snapshot")
+
+	// ParseVolumeSnapshotNodeID parses a volume snapshot node ID
+	ParseVolumeSnapshotNodeID = parseSingleComponentID("volume_snapshot")
+
+	// MakeVolumeSnapshotDataNodeID produces a volume snapshot data node ID from its composite parts.
+	MakeVolumeSnapshotDataNodeID = makeSingleComponentID("volume_snapshot_data")
+
+	// ParseVolumeSnapshotDataNodeID parses a volume snapshot data node ID
+	ParseVolumeSnapshotDataNodeID = parseSingleComponentID("volume_snapshot_data")
 )
 
 // makeSingleComponentID makes a single-component node id encoder
